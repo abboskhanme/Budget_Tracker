@@ -698,6 +698,7 @@ body {
     <div class="balance-card dash-card">
       <div class="card-label">📊 Umumiy holat</div>
       <div class="card-balance" id="dash-net">0 so'm</div>
+      <div class="card-balance" id="dash-usd-bal">$0</div>
       <div class="card-stats">
         <div class="stat-pill">
           <span>📈 Jami kirim</span>
@@ -799,6 +800,7 @@ body {
         </div>
         <select class="filter-select" id="fs-cat" onchange="setFilter('cat', this.value)">
           <option value="all">Barcha toifa</option>
+          <option value="💰 Kirim">💰 Kirim</option>
           <option value="🍕 Ovqat">🍕 Ovqat</option>
           <option value="🚌 Transport">🚌 Transport</option>
           <option value="🏠 Uy">🏠 Uy</option>
@@ -813,7 +815,6 @@ body {
           <option value="✈️ Sayohat">✈️ Sayohat</option>
           <option value="💻 Online">💻 Online</option>
           <option value="🎓 Kurs">🎓 Kurs</option>
-          <option value="💰 Tejash">💰 Tejash</option>
           <option value="🏥 Sog'liq">🏥 Sog'liq</option>
           <option value="🔧 Ta'mirlash">🔧 Ta'mirlash</option>
           <option value="📦 Boshqa">📦 Boshqa</option>
@@ -849,23 +850,24 @@ body {
       </div>
       <div class="input-row">
         <input class="input-field" id="uzs-amount" type="number" placeholder="Miqdor (so'm)" min="0" />
-        <select class="type-select" id="uzs-cat">
-          <option>🍕 Ovqat</option>
-          <option>🚌 Transport</option>
-          <option>🏠 Uy</option>
-          <option>👗 Kiyim</option>
-          <option>💊 Sog'liq</option>
-          <option>🎉 Dam olish</option>
-          <option>📚 Ta'lim</option>
-          <option>💼 Ish</option>
-          <option>🎁 Sovg'a</option>
-          <option>💰 Maosh</option>
-          <option>📦 Boshqa</option>
+        <select class="type-select" id="uzs-cat" onchange="syncButtons('uzs')">
+          <option value="💰 Kirim">💰 Kirim</option>
+          <option value="🍕 Ovqat">🍕 Ovqat</option>
+          <option value="🚌 Transport">🚌 Transport</option>
+          <option value="🏠 Uy">🏠 Uy</option>
+          <option value="👗 Kiyim">👗 Kiyim</option>
+          <option value="💊 Sog'liq">💊 Sog'liq</option>
+          <option value="🎉 Dam olish">🎉 Dam olish</option>
+          <option value="📚 Ta'lim">📚 Ta'lim</option>
+          <option value="💼 Ish">💼 Ish</option>
+          <option value="🎁 Sovg'a">🎁 Sovg'a</option>
+          <option value="💰 Maosh">💰 Maosh</option>
+          <option value="📦 Boshqa">📦 Boshqa</option>
         </select>
       </div>
       <div class="btn-row">
-        <button class="btn btn-income" onclick="addTx('uzs','income')">✅ Kirim</button>
-        <button class="btn btn-expense" onclick="addTx('uzs','expense')">➖ Chiqim</button>
+        <button class="btn btn-income" id="uzs-btn-income" onclick="addTx('uzs','income')">✅ Kirim</button>
+        <button class="btn btn-expense" id="uzs-btn-expense" onclick="addTx('uzs','expense')">➖ Chiqim</button>
       </div>
     </div>
 
@@ -902,19 +904,20 @@ body {
       </div>
       <div class="input-row">
         <input class="input-field" id="usd-amount" type="number" placeholder="Miqdor ($)" step="0.01" min="0" />
-        <select class="type-select" id="usd-cat">
-          <option>💼 Ish</option>
-          <option>🛒 Xarid</option>
-          <option>✈️ Sayohat</option>
-          <option>💻 Online</option>
-          <option>🎓 Kurs</option>
-          <option>💰 Maosh</option>
-          <option>📦 Boshqa</option>
+        <select class="type-select" id="usd-cat" onchange="syncButtons('usd')">
+          <option value="💰 Kirim">💰 Kirim</option>
+          <option value="💼 Ish">💼 Ish</option>
+          <option value="🛒 Xarid">🛒 Xarid</option>
+          <option value="✈️ Sayohat">✈️ Sayohat</option>
+          <option value="💻 Online">💻 Online</option>
+          <option value="🎓 Kurs">🎓 Kurs</option>
+          <option value="💰 Maosh">💰 Maosh</option>
+          <option value="📦 Boshqa">📦 Boshqa</option>
         </select>
       </div>
       <div class="btn-row">
-        <button class="btn btn-income" onclick="addTx('usd','income')">✅ Kirim</button>
-        <button class="btn btn-expense" onclick="addTx('usd','expense')">➖ Chiqim</button>
+        <button class="btn btn-income" id="usd-btn-income" onclick="addTx('usd','income')">✅ Kirim</button>
+        <button class="btn btn-expense" id="usd-btn-expense" onclick="addTx('usd','expense')">➖ Chiqim</button>
       </div>
     </div>
 
@@ -975,18 +978,18 @@ body {
       </div>
       <div class="input-row">
         <input class="input-field" id="emr-amount" type="number" placeholder="Miqdor ($)" step="0.01" min="0" />
-        <select class="type-select" id="emr-cat">
-          <option>💰 Tejash</option>
-          <option>🎁 Sovg'a</option>
-          <option>🏥 Sog'liq</option>
-          <option>🔧 Ta'mirlash</option>
-          <option>✈️ Sayohat</option>
-          <option>📦 Boshqa</option>
+        <select class="type-select" id="emr-cat" onchange="syncButtons('emr')">
+          <option value="💰 Kirim">💰 Kirim</option>
+          <option value="🎁 Sovg'a">🎁 Sovg'a</option>
+          <option value="🏥 Sog'liq">🏥 Sog'liq</option>
+          <option value="🔧 Ta'mirlash">🔧 Ta'mirlash</option>
+          <option value="✈️ Sayohat">✈️ Sayohat</option>
+          <option value="📦 Boshqa">📦 Boshqa</option>
         </select>
       </div>
       <div class="btn-row">
-        <button class="btn btn-income" onclick="addTx('emr','income')">💜 Qo'shish</button>
-        <button class="btn btn-expense" onclick="addTx('emr','expense')">🔓 Ishlatish</button>
+        <button class="btn btn-income" id="emr-btn-income" onclick="addTx('emr','income')">💜 Qo'shish</button>
+        <button class="btn btn-expense" id="emr-btn-expense" onclick="addTx('emr','expense')">🔓 Ishlatish</button>
       </div>
     </div>
 
@@ -1201,6 +1204,7 @@ function updateDashboard() {
   document.getElementById('mini-count').textContent = totalCount + ' ta';
 
   document.getElementById('dash-net').textContent = (uzsNeg?'-':'') + fmtUZS(uzs.balance);
+  document.getElementById('dash-usd-bal').textContent = (usdNeg?'-':'') + fmtUSD(usd.balance);
   document.getElementById('dash-total-in').textContent  = fmtUZS(uzs.income);
   document.getElementById('dash-total-out').textContent = fmtUZS(uzs.expense);
   document.getElementById('dash-emr-bal').textContent   = (emrNeg?'-':'') + fmtUSD(emr.balance);
@@ -1448,6 +1452,22 @@ function updateGoalUI() {
 // ══════════════════════════════════════
 // TAB SWITCH
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// SYNC BUTTONS BASED ON CATEGORY
+// ══════════════════════════════════════
+function syncButtons(cur) {
+  const cat = document.getElementById(cur + '-cat').value;
+  const isIncome = cat === '💰 Kirim';
+  const incomeBtn  = document.getElementById(cur + '-btn-income');
+  const expenseBtn = document.getElementById(cur + '-btn-expense');
+  incomeBtn.disabled  = !isIncome;
+  expenseBtn.disabled = isIncome;
+}
+
+function syncAllButtons() {
+  ['uzs', 'usd', 'emr'].forEach(syncButtons);
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1533,6 +1553,7 @@ document.getElementById('pin-setup-step').style.display = 'none';
   updateSection('usd');
   updateSection('emr');
   updateDashboard();
+  syncAllButtons();
 })();
 </script>
 </body>
