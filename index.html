@@ -496,6 +496,123 @@ body {
 .expense-bar { background: linear-gradient(90deg, #f9b89a, #f47070); }
 .bar-val { font-size: 0.68rem; font-weight: 700; color: var(--text); text-align: right; }
 
+/* ── PIN LOCK OVERLAY ── */
+#pin-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: var(--cream);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  background-image:
+    radial-gradient(circle at 15% 25%, rgba(249,184,154,0.22) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(196,181,213,0.22) 0%, transparent 45%);
+}
+#pin-overlay.hidden { display: none; }
+
+.pin-logo {
+  font-size: 3rem; margin-bottom: 6px;
+  animation: float 4s ease-in-out infinite;
+}
+.pin-title {
+  font-family: 'Nunito', sans-serif; font-weight: 900;
+  font-size: 1.5rem; color: var(--brown); margin-bottom: 4px;
+}
+.pin-subtitle {
+  font-size: 0.78rem; color: var(--rose); font-weight: 600;
+  margin-bottom: 28px; text-align: center;
+}
+
+.pin-dots {
+  display: flex; gap: 14px; margin-bottom: 28px;
+}
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--soft);
+  border: 2.5px solid var(--peach);
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.pin-dot.filled {
+  background: var(--peach);
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(249,184,154,0.6);
+}
+.pin-dot.error {
+  background: var(--red);
+  border-color: var(--red);
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.pin-keypad {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 11px; max-width: 260px; width: 100%;
+}
+.pin-key {
+  aspect-ratio: 1;
+  border: none; border-radius: 50%;
+  background: white;
+  box-shadow: 0 4px 14px rgba(90,62,53,0.1);
+  font-family: 'Nunito', sans-serif; font-weight: 800;
+  font-size: 1.3rem; color: var(--brown);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.pin-key:active, .pin-key.pressed {
+  transform: scale(0.9);
+  background: var(--peach);
+  color: white;
+  box-shadow: 0 2px 8px rgba(249,184,154,0.5);
+}
+.pin-key .key-sub {
+  font-size: 0.45rem; letter-spacing: 1.5px;
+  opacity: 0.6; font-weight: 700;
+  font-family: 'Quicksand', sans-serif;
+}
+.pin-key.key-del {
+  background: var(--soft);
+  font-size: 1.1rem;
+}
+.pin-key.key-del:active { background: var(--rose); color: white; }
+.pin-key.key-empty { background: transparent; box-shadow: none; cursor: default; pointer-events: none; }
+
+.pin-error-msg {
+  margin-top: 18px; font-size: 0.78rem;
+  font-weight: 700; color: var(--red);
+  opacity: 0; transition: opacity 0.2s;
+  min-height: 20px; text-align: center;
+}
+.pin-error-msg.show { opacity: 1; }
+
+/* SET PIN screen extras */
+.pin-setup-step {
+  font-size: 0.7rem; font-weight: 700;
+  color: var(--lavender); letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+
+/* Change PIN button in app */
+.change-pin-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 13px 16px;
+  background: white; border: none; border-radius: 16px;
+  box-shadow: 0 3px 12px rgba(90,62,53,0.07);
+  font-family: 'Quicksand', sans-serif; font-weight: 700;
+  font-size: 0.85rem; color: var(--brown); cursor: pointer;
+  margin-bottom: 10px; transition: all 0.2s;
+}
+.change-pin-btn:active { transform: scale(0.98); }
+.change-pin-btn .cpb-icon { font-size: 1.2rem; }
+.change-pin-btn .cpb-arrow { margin-left: auto; opacity: 0.4; }
+
 /* ── TOAST ── */
 .toast {
   position: fixed; bottom: 88px; left: 50%;
@@ -531,6 +648,35 @@ body {
 <div id="loading-overlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">Ma'lumotlar yuklanmoqda...</div>
+</div>
+
+<!-- ── PIN LOCK OVERLAY ── -->
+<div id="pin-overlay">
+  <div class="pin-logo">🔐</div>
+  <div class="pin-title" id="pin-title">Mening G'aznam</div>
+  <div class="pin-setup-step" id="pin-setup-step" style="display:none">1-QADAM: PIN YARATING</div>
+  <div class="pin-subtitle" id="pin-subtitle">PIN-kodni kiriting</div>
+  <div class="pin-dots" id="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinKey('1')"><span>1</span></button>
+    <button class="pin-key" onclick="pinKey('2')"><span>2</span><span class="key-sub">ABC</span></button>
+    <button class="pin-key" onclick="pinKey('3')"><span>3</span><span class="key-sub">DEF</span></button>
+    <button class="pin-key" onclick="pinKey('4')"><span>4</span><span class="key-sub">GHI</span></button>
+    <button class="pin-key" onclick="pinKey('5')"><span>5</span><span class="key-sub">JKL</span></button>
+    <button class="pin-key" onclick="pinKey('6')"><span>6</span><span class="key-sub">MNO</span></button>
+    <button class="pin-key" onclick="pinKey('7')"><span>7</span><span class="key-sub">PQRS</span></button>
+    <button class="pin-key" onclick="pinKey('8')"><span>8</span><span class="key-sub">TUV</span></button>
+    <button class="pin-key" onclick="pinKey('9')"><span>9</span><span class="key-sub">WXYZ</span></button>
+    <div class="pin-key key-empty"></div>
+    <button class="pin-key" onclick="pinKey('0')"><span>0</span></button>
+    <button class="pin-key key-del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error-msg" id="pin-error"></div>
 </div>
 
 <div class="deco">🌸</div>
@@ -1330,7 +1476,48 @@ function escHtml(str) {
 }
 
 // ══════════════════════════════════════
-// INIT — load from Supabase on start
+// PIN LOCK SYSTEM
+// ══════════════════════════════════════
+const CORRECT_PIN = '3434'; // ← PIN shu yerda o'zgartiring
+let pinBuffer = '';
+
+function pinKey(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  _updateDots();
+  if (pinBuffer.length === 4) setTimeout(_checkPin, 150);
+}
+
+function pinDel() {
+  if (pinBuffer.length > 0) { pinBuffer = pinBuffer.slice(0, -1); _updateDots(); }
+}
+
+function _updateDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    d.classList.toggle('filled', i < pinBuffer.length);
+    d.classList.remove('error');
+  }
+}
+
+function _checkPin() {
+  if (pinBuffer === CORRECT_PIN) {
+    document.getElementById('pin-overlay').classList.add('hidden');
+  } else {
+    for (let i = 0; i < 4; i++) document.getElementById('pd' + i).classList.add('error');
+    const errEl = document.getElementById('pin-error');
+    errEl.textContent = '❌ Noto\'g\'ri PIN!';
+    errEl.classList.add('show');
+    setTimeout(() => { pinBuffer = ''; _updateDots(); errEl.classList.remove('show'); }, 1000);
+  }
+}
+
+function startChangePin() {} // no-op (kept for button compatibility)
+
+// Init PIN on load
+document.getElementById('pin-overlay').classList.remove('hidden');
+document.getElementById('pin-setup-step').style.display = 'none';
+
 // ══════════════════════════════════════
 (async function init() {
   try {
