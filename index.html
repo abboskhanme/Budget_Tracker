@@ -1713,6 +1713,44 @@
     .nav-btn.active.debt {
       color: #6a4a9a;
     }
+
+    .debt-add-more-btn {
+      flex: 1;
+      padding: 7px 8px;
+      border: none;
+      border-radius: 11px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: linear-gradient(135deg, #f9b89a, #f47070);
+      color: white;
+    }
+
+    .debt-add-more-btn:active {
+      transform: scale(0.96);
+    }
+
+    .debt-add-more-form {
+      background: #fff5f0;
+      border-radius: 12px;
+      padding: 10px 11px;
+      margin-top: 7px;
+      display: none;
+      border: 1.5px dashed var(--peach);
+    }
+
+    .debt-add-more-form.open {
+      display: block;
+    }
+
+    .debt-add-more-form-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: var(--brown);
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 
@@ -2788,6 +2826,46 @@
       hist.classList.toggle('open');
     }
 
+    function toggleAddMoreForm(id) {
+      const form = document.getElementById('addmoreform-' + id);
+      if (!form) return;
+      form.classList.toggle('open');
+    }
+
+    async function addMoreDebt(id) {
+      const debt = debts.find(d => d.id === id);
+      if (!debt) return;
+      const amtEl = document.getElementById('addmoreinput-' + id);
+      const addAmt = parseFloat(amtEl.value);
+      if (!addAmt || addAmt <= 0) { showToast('⚠️ Miqdorni kiriting!'); return; }
+
+      const addBtn = document.querySelector(`#addmoreform-${id} .debt-add-more-btn`);
+      if (addBtn) addBtn.disabled = true;
+
+      const newTotal = debt.amount + addAmt;
+
+      try {
+        await sbFetch(
+          'debts?id=eq.' + id, 'PATCH',
+          { amount: newTotal, paid: false },
+          { 'Prefer': 'return=minimal' }
+        );
+
+        debt.amount = newTotal;
+        debt.paid = false;
+
+        amtEl.value = '';
+        document.getElementById('addmoreform-' + id).classList.remove('open');
+        renderDebts();
+        updateDebtSummary();
+        showToast('✅ Qarzga ' + debtFmt(debt.currency, addAmt) + ' qo\'shildi!');
+      } catch (e) {
+        showToast('❌ Xato: ' + e.message);
+      } finally {
+        if (addBtn) addBtn.disabled = false;
+      }
+    }
+
     async function payDebt(id) {
       const debt = debts.find(d => d.id === id);
       if (!debt) return;
@@ -2886,6 +2964,10 @@
       <button class="debt-pay-btn" onclick="togglePayForm('${d.id}')">💳 Qarz so'ndirish</button>
     ` : '';
 
+        const addMoreBtnHtml = (!d.paid && !isGive) ? `
+      <button class="debt-add-more-btn" onclick="toggleAddMoreForm('${d.id}')">➕ Yana qarz</button>
+    ` : '';
+
         return `<div class="debt-item ${d.paid ? 'paid' : ''}">
       <div class="debt-item-header">
         <div class="debt-name">${icon} ${escHtml(d.name)}</div>
@@ -2904,6 +2986,7 @@
       </div>
       <div class="debt-actions">
         ${payBtnHtml}
+        ${addMoreBtnHtml}
         ${d.payments.length > 0 ? `<button class="debt-history-toggle" onclick="togglePayHistory('${d.id}')">📜 To'lovlar tarixi</button>` : ''}
         <button class="debt-delete-btn" onclick="deleteDebt('${d.id}')">🗑️</button>
       </div>
@@ -2911,6 +2994,13 @@
         <div class="debt-pay-form-row">
           <input class="input-field" id="payinput-${d.id}" type="number" placeholder="To'lov miqdori" min="0" step="any" style="flex:1;font-size:0.82rem;padding:8px 10px" />
           <button class="debt-pay-btn" style="flex:0 0 auto;padding:8px 12px" onclick="payDebt('${d.id}')">✅ Kiritish</button>
+        </div>
+      </div>
+      <div class="debt-add-more-form" id="addmoreform-${d.id}">
+        <div class="debt-add-more-form-label">➕ Mavjud qarzga qo'shish:</div>
+        <div class="debt-pay-form-row">
+          <input class="input-field" id="addmoreinput-${d.id}" type="number" placeholder="Qo'shilayotgan miqdor" min="0" step="any" style="flex:1;font-size:0.82rem;padding:8px 10px" />
+          <button class="debt-add-more-btn" style="flex:0 0 auto;padding:8px 12px" onclick="addMoreDebt('${d.id}')">✅ Qo'shish</button>
         </div>
       </div>
       <div class="debt-pay-history" id="payhist-${d.id}">
