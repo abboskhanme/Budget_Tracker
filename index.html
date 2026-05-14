@@ -49,6 +49,110 @@
         radial-gradient(circle at 50% 50%, rgba(168, 197, 160, 0.09) 0%, transparent 60%);
     }
 
+    /* ── CONFIRM MODAL ── */
+    #confirm-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(90, 62, 53, 0.35);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    #confirm-modal.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .confirm-box {
+      background: white;
+      border-radius: 24px;
+      padding: 28px 24px 22px;
+      max-width: 320px;
+      width: 90%;
+      box-shadow: 0 16px 48px rgba(90, 62, 53, 0.22);
+      transform: scale(0.88) translateY(12px);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      text-align: center;
+    }
+
+    #confirm-modal.open .confirm-box {
+      transform: scale(1) translateY(0);
+    }
+
+    .confirm-icon {
+      font-size: 2.4rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .confirm-title {
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900;
+      font-size: 1.05rem;
+      color: var(--brown);
+      margin-bottom: 7px;
+    }
+
+    .confirm-msg {
+      font-size: 0.82rem;
+      color: #9a7a72;
+      font-weight: 600;
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .confirm-btn-cancel {
+      flex: 1;
+      padding: 11px 8px;
+      border: 2px solid var(--soft);
+      border-radius: 14px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 0.88rem;
+      color: var(--brown);
+      background: var(--cream);
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .confirm-btn-cancel:hover {
+      background: var(--soft);
+    }
+
+    .confirm-btn-ok {
+      flex: 1;
+      padding: 11px 8px;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 0.88rem;
+      color: white;
+      background: linear-gradient(135deg, #f9b89a, #f47070);
+      box-shadow: 0 4px 14px rgba(244, 112, 112, 0.3);
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .confirm-btn-ok:hover {
+      box-shadow: 0 6px 18px rgba(244, 112, 112, 0.42);
+    }
+
+    .confirm-btn-ok:active, .confirm-btn-cancel:active {
+      transform: scale(0.96);
+    }
+
     /* ── LOADING OVERLAY ── */
     #loading-overlay {
       position: fixed;
@@ -2218,7 +2322,50 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- ═══ CONFIRM MODAL ═══ -->
+  <div id="confirm-modal">
+    <div class="confirm-box">
+      <span class="confirm-icon" id="confirm-icon">🗑️</span>
+      <div class="confirm-title" id="confirm-title">Rostdan ham o'chirmoqchimisiz?</div>
+      <div class="confirm-msg" id="confirm-msg">Bu amalni qaytarib bo'lmaydi.</div>
+      <div class="confirm-btns">
+        <button class="confirm-btn-cancel" onclick="closeConfirm()">❌ Bekor qilish</button>
+        <button class="confirm-btn-ok" id="confirm-ok-btn" onclick="confirmAction()">✅ Tasdiqlash</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // ══════════════════════════════════════
+    // CONFIRM MODAL SYSTEM
+    // ══════════════════════════════════════
+    let _confirmCallback = null;
+
+    function showConfirm({ icon = '🗑️', title = 'Rostdan ham o\'chirmoqchimisiz?', msg = 'Bu amalni qaytarib bo\'lmaydi.', okText = '✅ Tasdiqlash', onOk }) {
+      document.getElementById('confirm-icon').textContent = icon;
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-msg').textContent = msg;
+      document.getElementById('confirm-ok-btn').textContent = okText;
+      _confirmCallback = onOk;
+      document.getElementById('confirm-modal').classList.add('open');
+    }
+
+    function closeConfirm() {
+      document.getElementById('confirm-modal').classList.remove('open');
+      _confirmCallback = null;
+    }
+
+    function confirmAction() {
+      const cb = _confirmCallback;
+      closeConfirm();
+      if (cb) cb();
+    }
+
+    // Close modal when clicking backdrop
+    document.getElementById('confirm-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeConfirm();
+    });
+
     // ══════════════════════════════════════
     // SUPABASE API — fetch wrapper
     // ══════════════════════════════════════
@@ -2568,38 +2715,52 @@
     // ══════════════════════════════════════
     // DELETE → Supabase DELETE by UUID
     // ══════════════════════════════════════
-    async function deleteTx(id) {
-      try {
-        await sbFetch('transactions?id=eq.' + id, 'DELETE');
-
-        // Remove from local cache
-        ['uzs', 'usd', 'emr'].forEach(cur => {
-          appData[cur].transactions = appData[cur].transactions.filter(tx => tx.id !== id);
-        });
-        updateSection('uzs');
-        updateSection('usd');
-        updateSection('emr');
-        updateDashboard();
-        showToast('🗑️ O\'chirildi');
-      } catch (e) {
-        showToast('❌ O\'chirishda xato!');
-      }
+    function deleteTx(id) {
+      showConfirm({
+        icon: '🗑️',
+        title: 'Tranzaksiyani o\'chirish',
+        msg: 'Bu yozuvni o\'chirmoqchimisiz? Bu amalni qaytarib bo\'lmaydi.',
+        okText: '✅ Ha, o\'chirish',
+        onOk: async () => {
+          try {
+            await sbFetch('transactions?id=eq.' + id, 'DELETE');
+            ['uzs', 'usd', 'emr'].forEach(cur => {
+              appData[cur].transactions = appData[cur].transactions.filter(tx => tx.id !== id);
+            });
+            updateSection('uzs');
+            updateSection('usd');
+            updateSection('emr');
+            updateDashboard();
+            showToast('🗑️ O\'chirildi');
+          } catch (e) {
+            showToast('❌ O\'chirishda xato!');
+          }
+        }
+      });
     }
 
     // ══════════════════════════════════════
     // CLEAR ALL (by currency) → Supabase DELETE
     // ══════════════════════════════════════
-    async function clearAll(cur) {
-      if (!confirm('Barcha yozuvlarni o\'chirmoqchimisiz?')) return;
-      try {
-        await sbFetch('transactions?currency=eq.' + cur, 'DELETE');
-        appData[cur].transactions = [];
-        updateSection(cur);
-        updateDashboard();
-        showToast('🧹 Tozalandi!');
-      } catch (e) {
-        showToast('❌ Xato: ' + e.message);
-      }
+    function clearAll(cur) {
+      const labels = { uzs: '🇺🇿 So\'m', usd: '💵 Dollar', emr: '🛡️ G\'azna' };
+      showConfirm({
+        icon: '🧹',
+        title: 'Barcha yozuvlarni o\'chirish',
+        msg: labels[cur] + ' bo\'limidagi barcha yozuvlarni o\'chirmoqchimisiz? Bu amalni qaytarib bo\'lmaydi!',
+        okText: '✅ Ha, barchasini o\'chirish',
+        onOk: async () => {
+          try {
+            await sbFetch('transactions?currency=eq.' + cur, 'DELETE');
+            appData[cur].transactions = [];
+            updateSection(cur);
+            updateDashboard();
+            showToast('🧹 Tozalandi!');
+          } catch (e) {
+            showToast('❌ Xato: ' + e.message);
+          }
+        }
+      });
     }
 
     // ══════════════════════════════════════
@@ -2624,19 +2785,27 @@
     }
 
     async function clearGoal() {
-      try {
-        await sbFetch(
-          'settings?key=eq.emr_goal',
-          'PATCH',
-          { value: '0' },
-          { 'Prefer': 'return=minimal' }
-        );
-        appData.emr.goal = 0;
-        updateSection('emr');
-        showToast('🗑️ Maqsad o\'chirildi');
-      } catch (e) {
-        showToast('❌ Xato: ' + e.message);
-      }
+      showConfirm({
+        icon: '🎯',
+        title: 'Maqsadni o\'chirish',
+        msg: 'Belgilangan maqsadni o\'chirmoqchimisiz?',
+        okText: '✅ Ha, o\'chirish',
+        onOk: async () => {
+          try {
+            await sbFetch(
+              'settings?key=eq.emr_goal',
+              'PATCH',
+              { value: '0' },
+              { 'Prefer': 'return=minimal' }
+            );
+            appData.emr.goal = 0;
+            updateSection('emr');
+            showToast('🗑️ Maqsad o\'chirildi');
+          } catch (e) {
+            showToast('❌ Xato: ' + e.message);
+          }
+        }
+      });
     }
 
     function updateGoalUI() {
@@ -2799,19 +2968,27 @@
       }
     }
 
-    async function deleteDebt(id) {
-      if (!confirm('Bu qarz yozuvini o\'chirmoqchimisiz?')) return;
-      try {
-        // delete payments first (FK), then debt
-        await sbFetch('debt_payments?debt_id=eq.' + id, 'DELETE');
-        await sbFetch('debts?id=eq.' + id, 'DELETE');
-        debts = debts.filter(d => d.id !== id);
-        renderDebts();
-        updateDebtSummary();
-        showToast('🗑️ O\'chirildi');
-      } catch (e) {
-        showToast('❌ O\'chirishda xato!');
-      }
+    function deleteDebt(id) {
+      const debt = debts.find(d => d.id === id);
+      const name = debt ? debt.name : '';
+      showConfirm({
+        icon: '🤝',
+        title: 'Qarz yozuvini o\'chirish',
+        msg: (name ? `"${name}" uchun` : 'Bu') + ' qarz yozuvini o\'chirmoqchimisiz? Barcha to\'lov tarixi ham o\'chib ketadi!',
+        okText: '✅ Ha, o\'chirish',
+        onOk: async () => {
+          try {
+            await sbFetch('debt_payments?debt_id=eq.' + id, 'DELETE');
+            await sbFetch('debts?id=eq.' + id, 'DELETE');
+            debts = debts.filter(d => d.id !== id);
+            renderDebts();
+            updateDebtSummary();
+            showToast('🗑️ O\'chirildi');
+          } catch (e) {
+            showToast('❌ O\'chirishda xato!');
+          }
+        }
+      });
     }
 
     function togglePayForm(id) {
