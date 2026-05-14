@@ -2843,6 +2843,9 @@
       if (addBtn) addBtn.disabled = true;
 
       const newTotal = debt.amount + addAmt;
+      const now = new Date();
+      const date_label = now.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' });
+      const ts = now.getTime();
 
       try {
         await sbFetch(
@@ -2851,8 +2854,15 @@
           { 'Prefer': 'return=minimal' }
         );
 
+        const payRow = await sbFetch(
+          'debt_payments?select=*', 'POST',
+          { debt_id: id, amount: -addAmt, date_label, ts },
+          { 'Prefer': 'return=representation' }
+        );
+
         debt.amount = newTotal;
         debt.paid = false;
+        debt.payments.push({ id: payRow[0].id, amount: -addAmt, date: date_label, ts });
 
         amtEl.value = '';
         document.getElementById('addmoreform-' + id).classList.remove('open');
@@ -2953,9 +2963,14 @@
         const amtClass = d.paid ? 'paid-amt' : (isGive ? 'give' : 'take');
         const icon = d.paid ? '✅' : (isGive ? '💙' : '🔴');
 
-        const payHistHtml = d.payments.length > 0 ? d.payments.map(p =>
-          `<div class="debt-pay-hist-item">
-        <span>✅ ${debtFmt(d.currency, p.amount)}</span>
+        const payHistHtml = d.payments.length > 0 ? d.payments.slice().sort((a,b) => a.ts - b.ts).map(p =>
+          p.amount < 0
+            ? `<div class="debt-pay-hist-item" style="color:#e05050">
+        <span>➕ +${debtFmt(d.currency, Math.abs(p.amount))} qo\u2018shildi</span>
+        <span>${p.date}</span>
+      </div>`
+            : `<div class="debt-pay-hist-item">
+        <span>\u2705 ${debtFmt(d.currency, p.amount)} to\u2018landi</span>
         <span>${p.date}</span>
       </div>`
         ).join('') : '<div style="font-size:0.7rem;color:#b0988a">Hali to\'lovlar yo\'q</div>';
