@@ -2077,7 +2077,7 @@
           <input class="input-field" id="uzs-desc" placeholder="Izoh (masalan: Oziq-ovqat)" />
         </div>
         <div class="input-row">
-          <input class="input-field" id="uzs-amount" type="number" placeholder="Miqdor (so'm)" min="0" />
+          <input class="input-field" id="uzs-amount" type="text" inputmode="numeric" placeholder="Miqdor (so'm)" oninput="formatAmountInput(this)" />
           <select class="type-select" id="uzs-cat" onchange="syncButtons('uzs')">
             <option value="💰 Kirim">💰 Kirim</option>
             <option value="🍕 Ovqat">🍕 Ovqat</option>
@@ -2131,7 +2131,7 @@
           <input class="input-field" id="usd-desc" placeholder="Izoh (masalan: Freelance)" />
         </div>
         <div class="input-row">
-          <input class="input-field" id="usd-amount" type="number" placeholder="Miqdor ($)" step="0.01" min="0" />
+          <input class="input-field" id="usd-amount" type="text" inputmode="numeric" placeholder="Miqdor ($)" oninput="formatAmountInput(this)" />
           <select class="type-select" id="usd-cat" onchange="syncButtons('usd')">
             <option value="💰 Kirim">💰 Kirim</option>
             <option value="💼 Ish">💼 Ish</option>
@@ -2179,8 +2179,7 @@
         <h3>🎯 Maqsad</h3>
         <div id="goal-form" style="display:block">
           <div class="goal-input-row">
-            <input class="input-field" id="emr-goal-input" type="number" placeholder="Maqsad miqdori ($)" step="0.01"
-              min="0" />
+            <input class="input-field" id="emr-goal-input" type="text" inputmode="numeric" placeholder="Maqsad miqdori ($)" oninput="formatAmountInput(this)" />
             <button class="btn btn-income" style="flex:0 0 auto;padding:10px 14px;font-size:0.8rem;"
               onclick="setGoal()">✅ Belgilash</button>
           </div>
@@ -2208,7 +2207,7 @@
           <input class="input-field" id="emr-desc" placeholder="Izoh (masalan: Oylik tejash)" />
         </div>
         <div class="input-row">
-          <input class="input-field" id="emr-amount" type="number" placeholder="Miqdor ($)" step="0.01" min="0" />
+          <input class="input-field" id="emr-amount" type="text" inputmode="numeric" placeholder="Miqdor ($)" oninput="formatAmountInput(this)" />
           <select class="type-select" id="emr-cat" onchange="syncButtons('emr')">
             <option value="💰 Kirim">💰 Kirim</option>
             <option value="🎁 Sovg'a">🎁 Sovg'a</option>
@@ -2670,7 +2669,7 @@
       const catEl = document.getElementById(cur + '-cat');
 
       const desc = descEl ? descEl.value.trim() : '';
-      const amtRaw = parseFloat(amountEl.value);
+      const amtRaw = parseFloat(amountEl.value.replace(/,/g, ''));
       const cat = catEl ? catEl.value : '';
 
       if (!amtRaw || amtRaw <= 0) { showToast('⚠️ Miqdorni kiriting!'); return; }
@@ -2767,7 +2766,7 @@
     // GOAL → Supabase settings UPSERT
     // ══════════════════════════════════════
     async function setGoal() {
-      const g = parseFloat(document.getElementById('emr-goal-input').value);
+      const g = parseFloat(document.getElementById('emr-goal-input').value.replace(/,/g, ''));
       if (!g || g <= 0) { showToast('⚠️ Maqsad miqdor kiriting!'); return; }
       try {
         await sbFetch(
@@ -2895,7 +2894,8 @@
             id: p.id,
             amount: parseFloat(p.amount) || 0,
             date: p.date_label || '',
-            ts: p.ts || 0
+            ts: p.ts || 0,
+            isInitial: (p.ts || 0) === (r.ts || 0) && (parseFloat(p.amount) || 0) > 0
           }))
       }));
     }
@@ -2952,6 +2952,17 @@
           currency: cur, dir: debtDir, paid: false, paidAmount: 0,
           date: date_label, ts, payments: []
         };
+
+        // Dastlabki qarz miqdorini tarix sifatida saqlash (ts === debt.ts — dastlabki belgisi)
+        try {
+          const initPay = await sbFetch(
+            'debt_payments?select=*', 'POST',
+            { debt_id: row[0].id, amount: amt, date_label, ts },
+            { 'Prefer': 'return=representation' }
+          );
+          newDebt.payments.push({ id: initPay[0].id, amount: amt, date: date_label, ts, isInitial: true });
+        } catch (_) { /* tarix saqlanmasa ham qarz qo'shilgan */ }
+
         debts.unshift(newDebt);
         renderDebts();
         updateDebtSummary();
@@ -3009,11 +3020,62 @@
       form.classList.toggle('open');
     }
 
+    function deleteDebtPayment(debtId, paymentId) {
+      showConfirm({
+        icon: '🗑️',
+        title: 'Operatsiyani o\'chirish',
+        msg: 'Bu to\'lov / qo\'shish yozuvini o\'chirmoqchimisiz? Qarz miqdori qayta hisoblanadi.',
+        okText: '✅ Ha, o\'chirish',
+        onOk: async () => {
+          const debt = debts.find(d => d.id === debtId);
+          if (!debt) return;
+          const payment = debt.payments.find(p => p.id === paymentId);
+          if (!payment) return;
+          if (payment.isInitial) { showToast('⚠️ Dastlabki qarz yozuvini o\'chirib bo\'lmaydi!'); return; }
+
+          try {
+            await sbFetch('debt_payments?id=eq.' + paymentId, 'DELETE');
+
+            // Recalculate amounts
+            let newAmount = debt.amount;
+            let newPaidAmount = debt.paidAmount;
+
+            if (payment.amount < 0) {
+              // It was an "add more debt" entry (stored as negative)
+              newAmount = debt.amount - Math.abs(payment.amount);
+            } else {
+              // It was a payment entry
+              newPaidAmount = Math.max(0, debt.paidAmount - payment.amount);
+            }
+
+            const nowPaid = newPaidAmount >= newAmount - 0.001 && newAmount > 0;
+
+            await sbFetch(
+              'debts?id=eq.' + debtId, 'PATCH',
+              { amount: newAmount, paid_amount: newPaidAmount, paid: nowPaid },
+              { 'Prefer': 'return=minimal' }
+            );
+
+            debt.amount = newAmount;
+            debt.paidAmount = newPaidAmount;
+            debt.paid = nowPaid;
+            debt.payments = debt.payments.filter(p => p.id !== paymentId);
+
+            renderDebts();
+            updateDebtSummary();
+            showToast('🗑️ Operatsiya o\'chirildi');
+          } catch (e) {
+            showToast('❌ O\'chirishda xato: ' + e.message);
+          }
+        }
+      });
+    }
+
     async function addMoreDebt(id) {
       const debt = debts.find(d => d.id === id);
       if (!debt) return;
       const amtEl = document.getElementById('addmoreinput-' + id);
-      const addAmt = parseFloat(amtEl.value);
+      const addAmt = parseFloat(amtEl.value.replace(/,/g, ''));
       if (!addAmt || addAmt <= 0) { showToast('⚠️ Miqdorni kiriting!'); return; }
 
       const addBtn = document.querySelector(`#addmoreform-${id} .debt-add-more-btn`);
@@ -3057,7 +3119,7 @@
       const debt = debts.find(d => d.id === id);
       if (!debt) return;
       const amtEl = document.getElementById('payinput-' + id);
-      const payAmt = parseFloat(amtEl.value);
+      const payAmt = parseFloat(amtEl.value.replace(/,/g, ''));
       if (!payAmt || payAmt <= 0) { showToast('⚠️ To\'lov miqdorini kiriting!'); return; }
       const remain = debt.amount - debt.paidAmount;
       if (payAmt > remain + 0.001) { showToast('⚠️ Qoldiqdan ko\'p kiritdingiz!'); return; }
@@ -3141,14 +3203,19 @@
         const icon = d.paid ? '✅' : (isGive ? '💙' : '🔴');
 
         const payHistHtml = d.payments.length > 0 ? d.payments.slice().sort((a,b) => a.ts - b.ts).map(p =>
-          p.amount < 0
+          p.isInitial
+            ? `<div class="debt-pay-hist-item" style="color:#8a6aad;background:#f5f0ff;border-radius:8px;padding:4px 7px;margin-bottom:2px">
+        <span>📌 Dastlabki qarz: ${debtFmt(d.currency, p.amount)}</span>
+        <span style="opacity:0.6">${p.date}</span>
+      </div>`
+            : p.amount < 0
             ? `<div class="debt-pay-hist-item" style="color:#e05050">
         <span>➕ +${debtFmt(d.currency, Math.abs(p.amount))} qo\u2018shildi</span>
-        <span>${p.date}</span>
+        <span style="display:flex;align-items:center;gap:6px">${p.date}<button onclick="deleteDebtPayment('${d.id}','${p.id}')" style="background:#fde4e4;border:none;border-radius:7px;color:#e05050;font-size:0.68rem;padding:2px 6px;cursor:pointer;font-weight:700">✕</button></span>
       </div>`
             : `<div class="debt-pay-hist-item">
         <span>\u2705 ${debtFmt(d.currency, p.amount)} to\u2018landi</span>
-        <span>${p.date}</span>
+        <span style="display:flex;align-items:center;gap:6px">${p.date}<button onclick="deleteDebtPayment('${d.id}','${p.id}')" style="background:#fde4e4;border:none;border-radius:7px;color:#e05050;font-size:0.68rem;padding:2px 6px;cursor:pointer;font-weight:700">✕</button></span>
       </div>`
         ).join('') : '<div style="font-size:0.7rem;color:#b0988a">Hali to\'lovlar yo\'q</div>';
 
@@ -3166,8 +3233,7 @@
         <span class="debt-badge ${badgeClass}">${badgeText}</span>
       </div>
       <div class="debt-amount-row">
-        <div class="debt-amount ${amtClass}">${debtFmt(d.currency, d.amount)}</div>
-        ${!d.paid && d.paidAmount > 0 ? `<div class="debt-remain">Qoldiq: ${debtFmt(d.currency, remain)}</div>` : ''}
+        <div class="debt-amount ${amtClass}">${d.paid ? debtFmt(d.currency, d.amount) : debtFmt(d.currency, remain)}</div>
         ${d.paid ? `<div class="debt-remain" style="color:#5aaa5a">✅ To'liq to'langan</div>` : ''}
       </div>
       ${d.reason ? `<div class="debt-reason">📝 ${escHtml(d.reason)}</div>` : ''}
@@ -3184,14 +3250,14 @@
       </div>
       <div class="debt-pay-form" id="payform-${d.id}">
         <div class="debt-pay-form-row">
-          <input class="input-field" id="payinput-${d.id}" type="number" placeholder="To'lov miqdori" min="0" step="any" style="flex:1;font-size:0.82rem;padding:8px 10px" />
+          <input class="input-field" id="payinput-${d.id}" type="text" inputmode="numeric" placeholder="To'lov miqdori" oninput="formatAmountInput(this)" style="flex:1;font-size:0.82rem;padding:8px 10px" />
           <button class="debt-pay-btn" style="flex:0 0 auto;padding:8px 12px" onclick="payDebt('${d.id}')">✅ Kiritish</button>
         </div>
       </div>
       <div class="debt-add-more-form" id="addmoreform-${d.id}">
         <div class="debt-add-more-form-label">➕ Mavjud qarzga qo'shish:</div>
         <div class="debt-pay-form-row">
-          <input class="input-field" id="addmoreinput-${d.id}" type="number" placeholder="Qo'shilayotgan miqdor" min="0" step="any" style="flex:1;font-size:0.82rem;padding:8px 10px" />
+          <input class="input-field" id="addmoreinput-${d.id}" type="text" inputmode="numeric" placeholder="Qo'shilayotgan miqdor" oninput="formatAmountInput(this)" style="flex:1;font-size:0.82rem;padding:8px 10px" />
           <button class="debt-add-more-btn" style="flex:0 0 auto;padding:8px 12px" onclick="addMoreDebt('${d.id}')">✅ Qo'shish</button>
         </div>
       </div>
@@ -3222,8 +3288,10 @@
       el.value = out;
     }
 
-    // ── QARZ MIQDOR FORMATLASH ──
-    function formatDebtAmount(el) {
+    // ── MIQDOR FORMATLASH (barcha amount inputlar uchun) ──
+    function formatAmountInput(el) {
+      const cursorPos = el.selectionStart;
+      const oldLen = el.value.length;
       let raw = el.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
       // Faqat bitta nuqta
       const parts = raw.split('.');
@@ -3232,7 +3300,14 @@
       // 3 tadan vergul
       intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       el.value = intPart + decPart;
+      // Cursor pozitsiyasini tiklash
+      const newLen = el.value.length;
+      const diff = newLen - oldLen;
+      el.setSelectionRange(cursorPos + diff, cursorPos + diff);
     }
+
+    // ── QARZ MIQDOR FORMATLASH (eski nom — debt-amount uchun allaqachon formatAmountInput ishlatilmoqda) ──
+    function formatDebtAmount(el) { formatAmountInput(el); }
 
     // ══════════════════════════════════════
     // PIN LOCK SYSTEM
